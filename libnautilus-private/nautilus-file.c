@@ -6894,6 +6894,44 @@ nautilus_file_is_archive (NautilusFile *file)
 	return FALSE;
 }
 
+/**
+ * nautilus_file_is_mountable_archive
+ * 
+ * Check if this file is an archive that can be mounted with the GVFS archive
+ * backend.
+ * 
+ * Returns: TRUE if @file is a mountable archive.
+ * 
+ **/ 
+gboolean
+nautilus_file_is_mountable_archive (NautilusFile *file)
+{
+	
+	char *mime_type;
+	int i;
+	static const char * archive_mime_types[] = { "application/x-cd-image",
+						     "application/x-gtar",
+						     "application/x-zip",
+						     "application/x-zip-compressed",
+						     "application/zip",
+						     "application/x-zip",
+						     "application/x-tar",
+						     "application/x-bzip-compressed-tar",
+						     "application/x-compressed-tar" };
+
+	g_return_val_if_fail (file != NULL, FALSE);
+
+	mime_type = nautilus_file_get_mime_type (file);
+	for (i = 0; i < G_N_ELEMENTS (archive_mime_types); i++) {
+		if (!strcmp (mime_type, archive_mime_types[i])) {
+			g_free (mime_type);
+			return TRUE;
+		}
+	}
+	g_free (mime_type);
+
+	return FALSE;
+}
 
 /**
  * nautilus_file_is_in_trash
