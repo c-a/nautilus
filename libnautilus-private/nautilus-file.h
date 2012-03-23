@@ -269,6 +269,11 @@ void                    nautilus_file_unmount                           (Nautilu
 									 GCancellable                   *cancellable,
 									 NautilusFileOperationCallback   callback,
 									 gpointer                        callback_data);
+void                    nautilus_file_mount_enclosing_volume            (NautilusFile                   *file,
+                                                                         GMountOperation                *mount_op,
+                                                                         GCancellable                   *cancellable,
+                                                                         NautilusFileOperationCallback   callback,
+                                                                         gpointer                        callback_data);
 void                    nautilus_file_eject                             (NautilusFile                   *file,
 									 GMountOperation                *mount_op,
 									 GCancellable                   *cancellable,
@@ -544,6 +549,11 @@ typedef struct {
 							  GCancellable                   *cancellable,
 							  NautilusFileOperationCallback   callback,
 							  gpointer                        callback_data);
+	void                 (* mount_enclosing_volume)  (NautilusFile                   *file,
+	                                                  GMountOperation                *mount_op,
+	                                                  GCancellable                   *cancellable,
+	                                                  NautilusFileOperationCallback   callback,
+	                                                  gpointer                        callback_data);
 	void                 (* eject)                   (NautilusFile                   *file,
 							  GMountOperation                *mount_op,
 							  GCancellable                   *cancellable,

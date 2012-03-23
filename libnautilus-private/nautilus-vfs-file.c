@@ -458,6 +458,51 @@ vfs_file_unmount (NautilusFile                   *file,
 }
 
 static void
+vfs_file_mount_enclosing_volume_callback (GObject *source_object,
+                                          GAsyncResult *res,
+                                          gpointer callback_data)
+{
+	NautilusFileOperation *op;
+	GError *error;
+
+	op = callback_data;
+
+	error = NULL;
+	g_file_mount_enclosing_volume_finish (G_FILE (source_object),
+	                                      res, &error);
+	nautilus_file_operation_complete (op, G_FILE (source_object), error);
+	if (error) {
+		g_error_free (error);
+	}
+}
+
+static void
+vfs_file_mount_enclosing_volume (NautilusFile                   *file,
+                                 GMountOperation                *mount_op,
+                                 GCancellable                   *cancellable,
+                                 NautilusFileOperationCallback   callback,
+                                 gpointer                        callback_data)
+{
+	NautilusFileOperation *op;
+	GFile *location;
+
+	op = nautilus_file_operation_new (file, callback, callback_data);
+	if (cancellable) {
+		g_object_unref (op->cancellable);
+		op->cancellable = g_object_ref (cancellable);
+	}
+
+	location = nautilus_file_get_location (file);
+	g_file_mount_enclosing_volume (location,
+	                               0,
+	                               mount_op,
+	                               op->cancellable,
+	                               vfs_file_mount_enclosing_volume_callback,
+	                               op);
+	g_object_unref (location);
+}
+
+static void
 vfs_file_eject_callback (GObject *source_object,
 			 GAsyncResult *res,
 			 gpointer callback_data)
@@ -703,6 +748,7 @@ nautilus_vfs_file_class_init (NautilusVFSFileClass *klass)
 	file_class->set_metadata_as_list = vfs_file_set_metadata_as_list;
 	file_class->mount = vfs_file_mount;
 	file_class->unmount = vfs_file_unmount;
+	file_class->mount_enclosing_volume = vfs_file_mount_enclosing_volume;
 	file_class->eject = vfs_file_eject;
 	file_class->start = vfs_file_start;
 	file_class->stop = vfs_file_stop;

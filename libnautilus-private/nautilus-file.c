@@ -1196,6 +1196,28 @@ nautilus_file_get_start_stop_type (NautilusFile *file)
 }
 
 void
+nautilus_file_mount_enclosing_volume (NautilusFile                   *file,
+                                      GMountOperation                *mount_op,
+                                      GCancellable                   *cancellable,
+                                      NautilusFileOperationCallback   callback,
+                                      gpointer                        callback_data)
+{
+	GError *error;
+	
+	if (NAUTILUS_FILE_GET_CLASS (file)->mount_enclosing_volume == NULL) {
+		if (callback) {
+			error = NULL;
+			g_set_error_literal (&error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                                             _("This files enclosing volume cannot be mounted"));
+			callback (file, NULL, error, callback_data);
+			g_error_free (error);
+		}
+	} else {
+		NAUTILUS_FILE_GET_CLASS (file)->mount_enclosing_volume (file, mount_op, cancellable, callback, callback_data);
+	}
+}
+
+void
 nautilus_file_mount (NautilusFile                   *file,
 		     GMountOperation                *mount_op,
 		     GCancellable                   *cancellable,
