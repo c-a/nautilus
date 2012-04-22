@@ -114,6 +114,7 @@
 #define NAUTILUS_VIEW_POPUP_PATH_SCRIPTS_PLACEHOLDER    	  "/selection/Open Placeholder/Scripts/Scripts Placeholder"
 #define NAUTILUS_VIEW_POPUP_PATH_EXTENSION_ACTIONS		  "/selection/Extension Actions"
 #define NAUTILUS_VIEW_POPUP_PATH_OPEN				  "/selection/Open Placeholder/Open"
+#define NAITILUS_VIEW_POPUP_PATH_MOUNT				  "/selection/Open Placeholder/Mount"          
 
 #define NAUTILUS_VIEW_POPUP_PATH_BACKGROUND			  "/background"
 #define NAUTILUS_VIEW_POPUP_PATH_BACKGROUND_SCRIPTS_PLACEHOLDER	  "/background/Before Zoom Items/New Object Items/Scripts/Scripts Placeholder"
@@ -1098,6 +1099,59 @@ action_open_callback (GtkAction *action,
 				      selection,
 				      0,
 				      TRUE);
+	nautilus_file_list_free (selection);
+}
+
+static void
+archive_mount_callback (NautilusFile  *file,
+		     GFile         *result_location,
+		     GError        *error,
+		     gpointer       callback_data)
+{
+	if (error != NULL &&
+	    (error->domain != G_IO_ERROR ||
+	     (error->code != G_IO_ERROR_CANCELLED &&
+	      error->code != G_IO_ERROR_FAILED_HANDLED &&
+	      error->code != G_IO_ERROR_ALREADY_MOUNTED))) {
+		eel_show_error_dialog (_("Unable to mount archive"),
+				       error->message, NULL);
+	}
+}
+
+static void
+action_mount_archive_callback (GtkAction *action,
+                               gpointer callback_data)
+{
+	GList *selection, *l;
+	NautilusView *view;
+
+	view = NAUTILUS_VIEW (callback_data);
+
+	selection = nautilus_view_get_selection (view);
+	for (l = selection; l != NULL; l = l->next) {
+		NautilusFile *file, *archive_file;
+		char *uri, *escaped_uri, *archive_uri;
+		GMountOperation *mount_op;
+
+		file = NAUTILUS_FILE (l->data);
+
+		uri = nautilus_file_get_uri (file);
+		escaped_uri = g_uri_escape_string (uri, NULL, TRUE);
+		archive_uri = g_strconcat ("archive://", escaped_uri, NULL);
+		archive_file = nautilus_file_get_by_uri (archive_uri);
+
+		g_free (uri);
+		g_free (escaped_uri);
+		g_free (archive_uri);
+		
+		mount_op = gtk_mount_operation_new (nautilus_view_get_containing_window (view));
+		g_mount_operation_set_password_save (mount_op, G_PASSWORD_SAVE_FOR_SESSION);
+		nautilus_file_mount_enclosing_volume (archive_file, mount_op, NULL,
+						      archive_mount_callback, NULL);
+		g_object_unref (mount_op);
+		nautilus_file_unref (archive_file);
+	}
+	
 	nautilus_file_list_free (selection);
 }
 
@@ -6999,6 +7053,10 @@ static const GtkActionEntry directory_view_entries[] = {
   /* label, accelerator */       N_("Open With Other _Application..."), NULL,
   /* tooltip */                  N_("Choose another application with which to open the selected item"),
 				 G_CALLBACK (action_other_application_callback) },
+  /* name, stock id */         { "MountArchive", NULL,
+  /* label, accelerator */       N_("_Mount archive"), "<control>m",
+  /* tooltip */                  N_("Mount the selected archive"),
+				 G_CALLBACK (action_mount_archive_callback) },
   /* name, stock id */         { "Open Scripts Folder", NULL,
   /* label, accelerator */       N_("_Open Scripts Folder"), NULL,
   /* tooltip */                 N_("Show the folder containing the scripts that appear in this menu"),
@@ -7488,6 +7546,19 @@ file_list_all_are_folders (GList *file_list)
 			     NAUTILUS_IS_DESKTOP_ICON_FILE (file))) {
 			return FALSE;
 		}
+	}
+	return TRUE;
+}
+
+static gboolean
+file_list_all_are_archives (GList *file_list)
+{
+	GList *l;
+	for (l = file_list; l != NULL; l = l->next) {
+		NautilusFile *file = NAUTILUS_FILE (l->data);
+
+		if (!nautilus_file_is_mountable_archive (file))
+			return FALSE;
 	}
 	return TRUE;
 }
@@ -8302,6 +8373,7 @@ real_update_menus (NautilusView *view)
 	gboolean save_search_sensitive;
 	gboolean show_save_search_as;
 	gboolean show_desktop_target;
+	gboolean show_mount_archive;
 	GtkAction *action;
 	GAppInfo *app;
 	GIcon *app_icon;
@@ -8419,6 +8491,29 @@ real_update_menus (NautilusView *view)
 	
 	g_free (label_with_underscore);
 
+	/* MountArchive action */
+	action = gtk_action_group_get_action (view->details->dir_action_group,
+					      NAUTILUS_ACTION_MOUNT_ARCHIVE);
+	show_mount_archive = file_list_all_are_archives (selection) &&
+		selection_count > 0;
+	gtk_action_set_sensitive (action, selection_count != 0);
+	gtk_action_set_visible (action, show_mount_archive);
+
+	if (selection_count == 0 || selection_count == 1) {
+		label_with_underscore = g_strdup (_("Mount archive"));
+	} else {
+		label_with_underscore = g_strdup_printf (ngettext("Mount %'d archive",
+								  "Mount %'d archives",
+								  selection_count), 
+							 selection_count);
+	}
+	g_object_set (action, "label", 
+		      label_with_underscore,
+		      NULL);
+	g_free (label_with_underscore);
+
+	
+	/* OpenAlternate action */
 	show_open_alternate = file_list_all_are_folders (selection) &&
 		selection_count > 0 &&
 		g_settings_get_boolean (nautilus_preferences, NAUTILUS_PREFERENCES_ALWAYS_USE_BROWSER) &&
